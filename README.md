@@ -22,9 +22,37 @@ A Model Context Protocol server that provides access to your iTerm session.
 * For multi-step tasks, you may need to interrupt the model if it goes off track. Start with smaller, focused tasks until you're familiar with how the model behaves. 
 
 ### Tools
-- `write_to_terminal` - Writes to the active iTerm terminal, often used to run a command. Returns the number of lines of output produced by the command.
-- `read_terminal_output` - Reads the requested number of lines from the active iTerm terminal.
-- `send_control_character` - Sends a control character to the active iTerm terminal.
+- `write_to_terminal` - Writes to the targeted iTerm terminal, often used to run a command. Returns the number of lines of output produced by the command.
+- `read_terminal_output` - Reads the requested number of lines from the targeted iTerm terminal.
+- `send_control_character` - Sends a control character to the targeted iTerm terminal.
+- `list_terminal_sessions` - Lists every iTerm session with its id, tty, what is running in it, which one is focused and which one is targeted.
+- `open_terminal_session` - Opens a new local iTerm tab, waits for its prompt, and targets it.
+
+All tools accept an optional `sessionId` (from `list_terminal_sessions`). `write_to_terminal` also accepts `allowRemote`.
+
+### Which terminal gets used
+
+Commands are not blindly sent to whatever tab happens to be focused. On each call the server inspects every iTerm session (iTerm's job info plus the foreground process group on the tty) and classifies it:
+
+| Kind | Meaning | Auto-selected? | Writable by default? |
+|---|---|---|---|
+| `local-shell` | shell prompt on this Mac | yes | yes |
+| `remote` | `ssh`, `mosh`, `telnet`, ... in the foreground | no | **no** |
+| `container` | `docker exec`, `kubectl exec`, ... in the foreground | no | **no** |
+| `multiplexer` | `tmux` / `screen` client; contents are not inspectable | no | yes |
+| `busy` | some other program (vim, a REPL, a build) | no | yes |
+
+Selection rules:
+
+1. An explicit `sessionId` always wins and becomes the target.
+2. Otherwise the previously targeted session is reused while it still exists, so the target does not drift when you click on other tabs.
+3. Otherwise a local shell is picked: the focused one if it qualifies, then idle local shells in front-to-back window order.
+4. If no local shell exists at all, a new tab is opened in the front window (or a new window if iTerm has none) and targeted. Set `ITERM_MCP_AUTO_NEW_TAB=0` to fail with the session list instead; the model can then call `open_terminal_session` explicitly.
+5. Writing into a `remote` or `container` session is refused unless the call passes `allowRemote: true`, or the server runs with `ITERM_MCP_ALLOW_REMOTE=1`. This stops commands from silently running on another machine. Reading and control characters are never refused.
+
+Every tool response starts with a `[target: ...]` line naming the session, tty and classification that was used.
+
+Limitations: an `ssh` running inside a tmux pane is invisible from the outside, so tmux sessions are reported as `multiplexer` and never auto-selected. iTerm's `session.hostname` variable is deliberately not used because it only reflects the remote host when shell integration is installed there.
 
 ### Requirements
 

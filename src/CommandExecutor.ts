@@ -3,6 +3,7 @@ import { promisify } from 'node:util';
 import { openSync, closeSync } from 'node:fs';
 import ProcessTracker from './ProcessTracker.js';
 import TtyOutputReader from './TtyOutputReader.js';
+import { scriptForSession, osascriptCommand } from './ItermScript.js';
 
 /**
  * CommandExecutor handles sending commands to iTerm2 via AppleScript.
@@ -33,38 +34,39 @@ class CommandExecutor {
    * 4. Retrieving the terminal output after command execution
    * 
    * @param command The command to execute (can contain newlines)
+   * @param sessionId iTerm session `unique id` to target; defaults to the focused session
    * @returns A promise that resolves to the terminal output after command execution
    */
-  async executeCommand(command: string): Promise<string> {
+  async executeCommand(command: string, sessionId?: string): Promise<string> {
     const escapedCommand = this.escapeForAppleScript(command);
-    
+
     try {
       // Check if this is a multiline command (which would have been processed differently)
       if (command.includes('\n')) {
         // For multiline text, we use parentheses around our prepared string expression
         // This allows AppleScript to evaluate the string concatenation expression
-        await this._execPromise(`/usr/bin/osascript -e 'tell application "iTerm2" to tell current session of current window to write text (${escapedCommand})'`);
+        await this._execPromise(osascriptCommand(scriptForSession(sessionId, `write text (${escapedCommand})`)));
       } else {
         // For single line commands, we can use the standard approach with quoted strings
-        await this._execPromise(`/usr/bin/osascript -e 'tell application "iTerm2" to tell current session of current window to write text "${escapedCommand}"'`);
+        await this._execPromise(osascriptCommand(scriptForSession(sessionId, `write text "${escapedCommand}"`)));
       }
-      
+
       // Wait until iTerm2 reports that command processing is complete
-      while (await this.isProcessing()) {
+      while (await this.isProcessing(sessionId)) {
         await sleep(100);
       }
-      
+
       // Get the TTY path and check if it's waiting for user input
-      const ttyPath = await this.retrieveTtyPath();
+      const ttyPath = await this.retrieveTtyPath(sessionId);
       while (await this.isWaitingForUserInput(ttyPath) === false) {
         await sleep(100);
       }
 
       // Give a small delay for output to settle
       await sleep(200);
-      
+
       // Retrieve the terminal output after command execution
-      const afterCommandBuffer = await TtyOutputReader.retrieveBuffer()
+      const afterCommandBuffer = await TtyOutputReader.retrieveBuffer(sessionId)
       return afterCommandBuffer
     } catch (error: unknown) {
       throw new Error(`Failed to execute command: ${(error as Error).message}`);
@@ -192,18 +194,18 @@ class CommandExecutor {
       .replace(/\t/g, '\\t');  // Handle tabs
   }
 
-  private async retrieveTtyPath(): Promise<string> {
+  private async retrieveTtyPath(sessionId?: string): Promise<string> {
     try {
-      const { stdout } = await this._execPromise(`/usr/bin/osascript -e 'tell application "iTerm2" to tell current session of current window to get tty'`);
+      const { stdout } = await this._execPromise(osascriptCommand(scriptForSession(sessionId, 'return (get tty)')));
       return stdout.trim();
     } catch (error: unknown) {
       throw new Error(`Failed to retrieve TTY path: ${(error as Error).message}`);
     }
   }
 
-  private async isProcessing(): Promise<boolean> {
+  private async isProcessing(sessionId?: string): Promise<boolean> {
     try {
-      const { stdout } = await this._execPromise(`/usr/bin/osascript -e 'tell application "iTerm2" to tell current session of current window to get is processing'`);
+      const { stdout } = await this._execPromise(osascriptCommand(scriptForSession(sessionId, 'return (get is processing)')));
       return stdout.trim() === 'true';
     } catch (error: unknown) {
       throw new Error(`Failed to check processing status: ${(error as Error).message}`);

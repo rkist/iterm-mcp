@@ -1,11 +1,12 @@
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
+import { scriptForSession, osascriptCommand } from './ItermScript.js';
 
 const execPromise = promisify(exec);
 
 export default class TtyOutputReader {
-  static async call(linesOfOutput?: number) {
-    const buffer = await this.retrieveBuffer();
+  static async call(linesOfOutput?: number, sessionId?: string) {
+    const buffer = await this.retrieveBuffer(sessionId);
     if (!linesOfOutput) {
       return buffer;
     }
@@ -13,20 +14,13 @@ export default class TtyOutputReader {
     return lines.slice(-linesOfOutput - 1).join('\n');
   }
 
-  static async retrieveBuffer(): Promise<string> {
-    const ascript = `
-      tell application "iTerm2"
-        tell front window
-          tell current session of current tab
-            set numRows to number of rows
-            set allContent to contents
-            return allContent
-          end tell
-        end tell
-      end tell
-    `;
-    
-    const { stdout: finalContent } = await execPromise(`osascript -e '${ascript}'`);
+  /**
+   * Returns the full scrollback contents of a session.
+   * @param sessionId iTerm session `unique id`; defaults to the focused session
+   */
+  static async retrieveBuffer(sessionId?: string): Promise<string> {
+    const script = scriptForSession(sessionId, 'return (get contents)');
+    const { stdout: finalContent } = await execPromise(osascriptCommand(script));
     return finalContent.trim();
   }
 }
