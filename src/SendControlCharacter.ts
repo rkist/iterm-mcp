@@ -1,5 +1,6 @@
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
+import { scriptForSession, osascriptCommand } from './ItermScript.js';
 
 const execPromise = promisify(exec);
 
@@ -9,7 +10,11 @@ class SendControlCharacter {
     await execPromise(command);
   }
 
-  async send(letter: string): Promise<void> {
+  /**
+   * @param letter control letter, ']' for telnet escape, or 'ESC'
+   * @param sessionId iTerm session `unique id`; defaults to the focused session
+   */
+  async send(letter: string, sessionId?: string): Promise<void> {
     let controlCode: number;
     
     // Handle special cases for telnet escape sequences
@@ -34,19 +39,10 @@ class SendControlCharacter {
     }
 
     // AppleScript to send the control character
-    const ascript = `
-      tell application "iTerm2"
-        tell front window
-          tell current session of current tab
-            -- Send the control character
-            write text (ASCII character ${controlCode})
-          end tell
-        end tell
-      end tell
-    `;
+    const ascript = scriptForSession(sessionId, `write text (ASCII character ${controlCode})`);
 
     try {
-      await this.executeCommand(`osascript -e '${ascript}'`);
+      await this.executeCommand(osascriptCommand(ascript));
     } catch (error: unknown) {
       throw new Error(`Failed to send control character: ${(error as Error).message}`);
     }
