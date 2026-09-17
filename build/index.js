@@ -8,7 +8,7 @@ import SendControlCharacter from "./SendControlCharacter.js";
 import SessionSelector, { SessionResolutionError, describeSession, formatSessionList } from "./SessionSelector.js";
 const server = new Server({
     name: "iterm-mcp",
-    version: "0.1.0",
+    version: "1.2.6",
 }, {
     capabilities: {
         tools: {},
@@ -28,7 +28,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         tools: [
             {
                 name: "write_to_terminal",
-                description: "Writes text to an iTerm terminal - often used to run a command in the terminal. Targets a local shell session (auto-selected and then pinned); refuses sessions running ssh or container shells unless allowRemote is true.",
+                description: "Writes text to an iTerm2 terminal session on this Mac - usually a command to run. Prefer this over a plain shell tool when the user should watch the command and its output in their own terminal, when the work is interactive (a REPL, a prompt-driven installer, an ssh login) or long-running (a dev server, a build worth watching), or when later calls need the same live shell with its state and history. Requires iTerm2 to be running. Returns only the number of new output lines, not the output itself - follow up with read_terminal_output to see what happened, and never assume the command succeeded. Targets a local shell session (auto-selected, then reused by later calls); refuses sessions running ssh or a container shell unless allowRemote is true.",
                 inputSchema: {
                     type: "object",
                     properties: {
@@ -44,13 +44,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             {
                 name: "read_terminal_output",
-                description: "Reads the output from the targeted iTerm terminal (the same session write_to_terminal uses)",
+                description: "Reads the tail of the scrollback from the targeted iTerm2 session (the same session write_to_terminal uses). Use it after write_to_terminal to see a command's output, and to poll a long-running process while it prints.",
                 inputSchema: {
                     type: "object",
                     properties: {
                         linesOfOutput: {
                             type: "integer",
-                            description: "The number of lines of output to read."
+                            description: "How many lines to read, counted back from the bottom of the scrollback. The line count returned by write_to_terminal is a good value."
                         },
                         sessionId: sessionIdProperty,
                     },
@@ -59,7 +59,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             {
                 name: "send_control_character",
-                description: "Sends a control character to the targeted iTerm terminal (e.g., Control-C, or special sequences like ']' for telnet escape)",
+                description: "Sends a control character to the targeted iTerm2 session (the same one write_to_terminal uses) - Control-C to interrupt a running command, Control-D to end input, Control-Z to suspend, or a special sequence like ']' for the telnet escape.",
                 inputSchema: {
                     type: "object",
                     properties: {
@@ -74,7 +74,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             {
                 name: "list_terminal_sessions",
-                description: "Lists all iTerm sessions with their id, tty, what is running in the foreground (local shell, ssh/remote, container, tmux, busy), which one is focused, and which one this server currently targets. Use it to pick a sessionId.",
+                description: "Lists all iTerm2 sessions with their id, tty, what is running in the foreground (local shell, ssh/remote, container, tmux, busy), which one is focused, and which one this server currently targets. Use it to pick a sessionId, or to check where commands will land before writing. Requires iTerm2 to be running.",
                 inputSchema: {
                     type: "object",
                     properties: {},
@@ -82,7 +82,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             {
                 name: "open_terminal_session",
-                description: "Opens a new local iTerm tab (or window if none exists), waits for its shell prompt, and makes it the target for subsequent tool calls. Use when every existing session is remote or busy, or when you want a clean shell.",
+                description: "Opens a new local iTerm2 tab (or a window if iTerm2 has none), waits for its shell prompt, and makes it the target for subsequent tool calls. Use when every existing session is remote, in a container or busy, or when you want a clean shell that no other work is using.",
                 inputSchema: {
                     type: "object",
                     properties: {},
