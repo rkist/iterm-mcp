@@ -11,7 +11,7 @@ A Model Context Protocol server that provides access to your iTerm session.
 
 **Full Terminal Control and REPL support:** The model can start and interact with REPL's as well as send control characters like ctrl-c, ctrl-z, etc.
 
-**Easy on the Dependencies:** iterm-mcp is built with minimal dependencies and is runnable via npx. It's designed to be easy to add to Claude Desktop and other MCP clients. It should just work.
+**Easy to Install:** iterm-mcp takes only the official MCP SDK and zod as direct dependencies, needs no build step or configuration from you, and is runnable via npx. It's designed to be easy to add to Claude Desktop and other MCP clients. It should just work.
 
 
 ## Safety Considerations
@@ -29,6 +29,13 @@ A Model Context Protocol server that provides access to your iTerm session.
 - `open_terminal_session` - Opens a new local iTerm tab, waits for its prompt, and targets it.
 
 All tools accept an optional `sessionId` (from `list_terminal_sessions`). `write_to_terminal` also accepts `allowRemote`.
+
+The server also sends MCP `instructions` in its initialize response, so a client that
+just installs it learns what the server is for, when to prefer it over a built-in shell
+tool, and the write-then-read loop - without anyone having read this file. Tools carry
+titles and behaviour annotations (`readOnlyHint`, `destructiveHint`, `openWorldHint`)
+and validate their arguments, so bad input is rejected with a specific message instead
+of being silently coerced.
 
 ### Which terminal gets used
 
@@ -94,17 +101,17 @@ npx -y @smithery/cli install iterm-mcp --client claude
 
 Install dependencies:
 ```bash
-yarn install
+npm install
 ```
 
 Build the server:
 ```bash
-yarn run build
+npm run build
 ```
 
 For development with auto-rebuild:
 ```bash
-yarn run watch
+npm run watch
 ```
 
 ### Debugging
@@ -112,8 +119,7 @@ yarn run watch
 Since MCP servers communicate over stdio, debugging can be challenging. We recommend using the [MCP Inspector](https://github.com/modelcontextprotocol/inspector), which is available as a package script:
 
 ```bash
-yarn run inspector
-yarn debug <command>
+npm run inspector
 ```
 
 The Inspector will provide a URL to access debugging tools in your browser.
