@@ -21,7 +21,7 @@
   ],
   "scripts": {
     "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
-    "prepublishOnly": "yarn run build",
+    "prepublishOnly": "npm run build",
     "watch": "tsc --watch",
     "inspector": "npx @modelcontextprotocol/inspector build/index.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config=jest.config.cjs",

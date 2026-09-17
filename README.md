@@ -94,17 +94,17 @@ npx -y @smithery/cli install iterm-mcp --client claude
 
 Install dependencies:
 ```bash
-yarn install
+npm install
 ```
 
 Build the server:
 ```bash
-yarn run build
+npm run build
 ```
 
 For development with auto-rebuild:
 ```bash
-yarn run watch
+npm run watch
 ```
 
 ### Debugging
@@ -112,8 +112,7 @@ yarn run watch
 Since MCP servers communicate over stdio, debugging can be challenging. We recommend using the [MCP Inspector](https://github.com/modelcontextprotocol/inspector), which is available as a package script:
 
 ```bash
-yarn run inspector
-yarn debug <command>
+npm run inspector
 ```
 
 The Inspector will provide a URL to access debugging tools in your browser.
